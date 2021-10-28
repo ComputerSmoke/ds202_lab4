@@ -1,0 +1,121 @@
+---
+title: "individual1"
+author: "Addison Schmidt"
+date: "10/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(tidyverse)
+defense = read_excel('./cyclonesFootball2020.xlsx', sheet='Defensive')
+str(defense)
+offense = read_excel('./cyclonesFootball2020.xlsx', sheet='Offensive')
+str(offense)
+biography = read_excel('./cyclonesFootball2020.xlsx', sheet='Biography')
+str(biography)
+```
+**Part One**
+1.
+```{r}
+defense$Name = factor(defense$Name)
+defense$Opponent_Opponent = factor(defense$Opponent_Opponent)
+offense$Name = factor(offense$Name)
+offense$Opponent_Opponent = factor(offense$Opponent_Opponent)
+biography$Name = factor(biography$Name)
+offense
+defense
+biography
+```
+2.
+```{r}
+offense = offense %>% 
+  mutate(across(Receiving_REC:Passing_INT, as.numeric))
+defense = defense %>% 
+  mutate(across(Tackles_Solo:Pass_PB, as.numeric))
+biography$Weight = as.numeric(biography$Weight)
+```
+
+3.
+```{r}
+biography = biography %>%
+  separate(Height, c('ft', 'in'))
+biography$ft = as.numeric(biography$ft)
+biography$`in` = as.numeric(biography$`in`)
+biography = biography %>%
+  mutate(Height = ft*12 + `in`)
+biography
+```
+
+4.
+```{r}
+offClean = offense %>%
+  group_by(Name, Opponent_Opponent) %>%
+  mutate(gameNum = row_number())
+defClean = defense %>%
+  group_by(Name, Opponent_Opponent) %>%
+  mutate(gameNum = row_number())
+bioClean = biography
+str(offClean)
+str(defClean)
+str(bioClean)
+```
+
+**Part Two**
+1.
+```{r}
+offClean = offClean %>%
+  pivot_longer(Receiving_REC:Passing_INT, names_to = 'stat', values_to = 'value')
+offClean = na.omit(offClean)
+offClean
+```
+2.
+```{r}
+offStats = offClean %>%
+  group_by(Name, stat) %>%
+  summarise(sum = sum(value))
+offStats
+```
+
+3. Noticeably, both the range and interquartile range of Passing_YDS dwarfs that of all the other stats. Receiving_YDS has the most outliers, with two.
+```{r}
+ggplot(offStats, aes(x=sum)) + geom_boxplot() + facet_wrap(~stat, scales="free")
+```
+
+4. The players scored better against Oklahoma, with the highest scoring player getting nearly 600 against Oklahoma, with just over 150 against Oregon.
+```{r}
+offStatsOpp = offClean %>%
+  group_by(Name, stat, Opponent_Opponent) %>%
+  summarise(sum = sum(value))
+offStatsOppWide = offStatsOpp %>%
+  pivot_wider(names_from=Opponent_Opponent, values_from=sum)
+ggplot(offStatsOppWide, aes(x=Oregon, y=Oklahoma)) + geom_point()
+```
+
+4. (the second one)
+```{r}
+bioClean = bioClean %>%
+  separate(Hometown, c('city', 'state'), sep=', ')
+```
+
+5.
+```{r}
+bioClean %>%
+  group_by(state) %>%
+  summarise(count = n()) %>%
+  arrange(-count)
+```
+
+6. Brock Purdy was at the top range of players for all applicable stats, except for one outlier in rushing stats who was outside of the normal range.
+```{r}
+offStats
+brockPurdy = offStats %>%
+  filter(Name == "Purdy, Brock")
+brockPurdy
+  
+ggplot(offStats, aes(x=sum)) + geom_boxplot() + geom_boxplot(data = brockPurdy, col="red") + facet_wrap(~stat, scales="free")
+```
